@@ -5,7 +5,7 @@
 CREATE TABLE Department (
     department_id VARCHAR(50) PRIMARY KEY,
     dept_name VARCHAR(255) NOT NULL,
-    head_of_department_id VARCHAR(50) -- FK added at the end to prevent circular dependency
+    head_of_department_id VARCHAR(50)
 );
 
 CREATE TABLE Facility (
@@ -20,8 +20,8 @@ CREATE TABLE Facility (
 
 CREATE TABLE Venue_Equipment (
     venue_id VARCHAR(50) NOT NULL,
-    equipment_name VARCHAR(100) NOT NULL, 
-    quantity INT DEFAULT 1 CHECK (quantity > 0),
+    equipment_name VARCHAR(100) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
     PRIMARY KEY (venue_id, equipment_name),
     FOREIGN KEY (venue_id) REFERENCES Facility(venue_id) ON DELETE CASCADE
 );
@@ -64,8 +64,9 @@ CREATE TABLE Student_Profile (
     email VARCHAR(255) UNIQUE NOT NULL,
     program_id VARCHAR(50) NOT NULL,
     batch_year INT NOT NULL,
-    credits_obtained DECIMAL(5,2) DEFAULT 0.00,
-    credits_registered DECIMAL(5,2) DEFAULT 0.00,
+    credits_obtained DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    credits_registered DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    registration_locked BOOLEAN NOT NULL DEFAULT FALSE,
     FOREIGN KEY (program_id) REFERENCES Program(program_id)
 );
 
@@ -79,40 +80,67 @@ CREATE TABLE Course (
     syllabus TEXT,
     credits INT NOT NULL CHECK (credits >= 0),
     department_id VARCHAR(50) NOT NULL,
+    course_type VARCHAR(50) NOT NULL DEFAULT 'Core'
+        CHECK (course_type IN ('Core', 'Department Elective', 'Institute Elective')),
+    ltp VARCHAR(20),
+    semester_code INT,
     FOREIGN KEY (department_id) REFERENCES Department(department_id)
 );
 
 CREATE TABLE Course_Prerequisite (
-    course_code VARCHAR(50),
-    prerequisite_course_code VARCHAR(50),
+    course_code VARCHAR(50) NOT NULL,
+    prerequisite_course_code VARCHAR(50) NOT NULL,
     PRIMARY KEY (course_code, prerequisite_course_code),
     FOREIGN KEY (course_code) REFERENCES Course(course_code) ON DELETE CASCADE,
     FOREIGN KEY (prerequisite_course_code) REFERENCES Course(course_code) ON DELETE CASCADE
 );
 
+CREATE TABLE Semester_Structure (
+    structure_id SERIAL PRIMARY KEY,
+    term_id VARCHAR(50) NOT NULL,
+    department_id VARCHAR(50) NOT NULL,
+    semester_code INT NOT NULL,
+    core_credits_required INT NOT NULL DEFAULT 0,
+    dept_elective_credits_required INT NOT NULL DEFAULT 0,
+    inst_elective_credits_required INT NOT NULL DEFAULT 0,
+    UNIQUE (term_id, department_id, semester_code),
+    FOREIGN KEY (term_id) REFERENCES Academic_Term(term_id) ON DELETE CASCADE,
+    FOREIGN KEY (department_id) REFERENCES Department(department_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Course_Access_Constraint (
+    constraint_id SERIAL PRIMARY KEY,
+    course_code VARCHAR(50) NOT NULL,
+    allowed_department VARCHAR(50) DEFAULT 'ALL',
+    allowed_batch_year INT,
+    allowed_roll_no_prefix VARCHAR(50),
+    FOREIGN KEY (course_code) REFERENCES Course(course_code) ON DELETE CASCADE
+);
+
 -- ==========================================
--- 4. SEMESTER OPERATIONS (THE HUB)
+-- 4. SEMESTER OPERATIONS
 -- ==========================================
 
 CREATE TABLE Course_Section (
     section_id VARCHAR(50) PRIMARY KEY,
     course_code VARCHAR(50) NOT NULL,
     term_id VARCHAR(50) NOT NULL,
-    section_name VARCHAR(20) NOT NULL, 
+    section_name VARCHAR(20) NOT NULL,
     primary_professor_id VARCHAR(50) NOT NULL,
-    capacity INT NOT NULL,
+    capacity INT NOT NULL CHECK (capacity > 0),
+    additional_info TEXT,
     FOREIGN KEY (course_code) REFERENCES Course(course_code),
     FOREIGN KEY (term_id) REFERENCES Academic_Term(term_id),
     FOREIGN KEY (primary_professor_id) REFERENCES Professor_Profile(employee_id)
 );
 
-CREATE TABLE Enrollment (   
+CREATE TABLE Enrollment (
     roll_no VARCHAR(50) NOT NULL,
     section_id VARCHAR(50) NOT NULL,
-    enrollment_status VARCHAR(20) DEFAULT 'Active'
+    enrollment_status VARCHAR(20) NOT NULL DEFAULT 'Active'
         CHECK (enrollment_status IN ('Active', 'Waitlisted', 'Dropped', 'Completed')),
-    final_grade VARCHAR(5), 
-    grade_points DECIMAL(3,2), 
+    final_grade VARCHAR(5),
+    grade_points DECIMAL(3,2),
     PRIMARY KEY (roll_no, section_id),
     FOREIGN KEY (roll_no) REFERENCES Student_Profile(roll_no) ON DELETE CASCADE,
     FOREIGN KEY (section_id) REFERENCES Course_Section(section_id)
@@ -122,7 +150,7 @@ CREATE TABLE Timetable_Slot (
     slot_id VARCHAR(50) PRIMARY KEY,
     section_id VARCHAR(50) NOT NULL,
     venue_id VARCHAR(50) NOT NULL,
-    day_of_week VARCHAR(15) NOT NULL 
+    day_of_week VARCHAR(15) NOT NULL
         CHECK (day_of_week IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
@@ -135,9 +163,9 @@ CREATE TABLE Attendance_Record (
     roll_no VARCHAR(50) NOT NULL,
     slot_id VARCHAR(50) NOT NULL,
     attendance_date DATE NOT NULL,
-    status VARCHAR(20) NOT NULL 
+    status VARCHAR(20) NOT NULL
         CHECK (status IN ('Present', 'Absent', 'Excused', 'Late')),
-    PRIMARY KEY (roll_no, slot_id, attendance_date),    
+    PRIMARY KEY (roll_no, slot_id, attendance_date),
     FOREIGN KEY (roll_no) REFERENCES Student_Profile(roll_no) ON DELETE CASCADE,
     FOREIGN KEY (slot_id) REFERENCES Timetable_Slot(slot_id) ON DELETE CASCADE
 );
@@ -161,7 +189,7 @@ CREATE TABLE Student_Assessment_Result (
     result_id VARCHAR(50) UNIQUE,
     assessment_id VARCHAR(50) NOT NULL,
     roll_no VARCHAR(50) NOT NULL,
-    completion_status VARCHAR(20) DEFAULT 'Pending' 
+    completion_status VARCHAR(20) NOT NULL DEFAULT 'Pending'
         CHECK (completion_status IN ('Submitted', 'Pending', 'Missed')),
     grade_achieved DECIMAL(6,2) CHECK (grade_achieved >= 0),
     PRIMARY KEY (assessment_id, roll_no),
@@ -176,7 +204,7 @@ CREATE TABLE Fee_Ledger (
     fee_type VARCHAR(100) NOT NULL,
     amount_due DECIMAL(10,2) NOT NULL CHECK (amount_due >= 0),
     due_date DATE NOT NULL,
-    payment_status VARCHAR(20) DEFAULT 'Pending' 
+    payment_status VARCHAR(20) NOT NULL DEFAULT 'Pending'
         CHECK (payment_status IN ('Paid', 'Pending', 'Overdue', 'Waived', 'Partial')),
     FOREIGN KEY (roll_no) REFERENCES Student_Profile(roll_no) ON DELETE CASCADE,
     FOREIGN KEY (term_id) REFERENCES Academic_Term(term_id)
@@ -184,11 +212,11 @@ CREATE TABLE Fee_Ledger (
 
 CREATE TABLE Fee_Payment (
     payment_id VARCHAR(50) PRIMARY KEY,
-    ledger_id VARCHAR(50) NOT NULL, 
+    ledger_id VARCHAR(50) NOT NULL,
     amount_paid DECIMAL(10,2) NOT NULL CHECK (amount_paid > 0),
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    payment_method VARCHAR(50) NOT NULL, 
-    transaction_reference VARCHAR(255), 
+    payment_method VARCHAR(50) NOT NULL,
+    transaction_reference VARCHAR(255),
     FOREIGN KEY (ledger_id) REFERENCES Fee_Ledger(ledger_id) ON DELETE CASCADE
 );
 

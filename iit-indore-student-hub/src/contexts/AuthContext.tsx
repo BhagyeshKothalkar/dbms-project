@@ -74,8 +74,27 @@ async function fetchStudentUser(rollNo: string): Promise<StudentUser> {
   };
 }
 
-function buildProfessorUser(): ProfessorUser {
-  return { ...professorProfile, role: "professor", idLabel: "Employee ID", idValue: professorProfile.employeeId };
+async function fetchProfessorUser(employeeId: string): Promise<ProfessorUser> {
+  const res = await fetch(`http://localhost:8000/api/professor/profile?employee_id=${encodeURIComponent(employeeId)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to load professor profile" }));
+    throw new Error(err.detail || "Failed to load professor profile");
+  }
+  const data = await res.json();
+  return {
+    ...professorProfile,
+    role: "professor",
+    idLabel: "Employee ID",
+    idValue: data.employee_id,
+    employeeId: data.employee_id,
+    name: data.name,
+    email: data.email,
+    department: data.dept_name || data.department_id,
+    designation: data.designation,
+    phone: data.phone,
+    office: data.office || "N/A",
+    specialization: data.specialization,
+  };
 }
 
 function buildAdminUser(userId: string): AdminUser {
@@ -96,8 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (storedRole === "student" && storedUserId) {
           const student = await fetchStudentUser(storedUserId);
           setUser(student);
-        } else if (storedRole === "professor") {
-          setUser(buildProfessorUser());
+        } else if (storedRole === "professor" && storedUserId) {
+          const prof = await fetchProfessorUser(storedUserId);
+          setUser(prof);
         } else if (storedRole === "admin") {
           setUser(buildAdminUser(storedUserId));
         }
@@ -125,7 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const student = await fetchStudentUser(effectiveId);
           setUser(student);
         } else if (role === "professor") {
-          setUser(buildProfessorUser());
+          const prof = await fetchProfessorUser(effectiveId);
+          setUser(prof);
         } else {
           setUser(buildAdminUser(effectiveId));
         }

@@ -10,14 +10,16 @@ import { Upload, FileText, CheckCircle2, Clock } from "lucide-react";
 export default function Documents() {
   const [docs, setDocs] = useState(uploadedDocuments);
 
-  const handleUpload = () => {
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     const newDoc = {
       id: String(Date.now()),
-      name: "New Document.pdf",
-      type: "Other",
+      name: file.name,
+      type: file.type || "Other",
       uploadDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
       status: "pending" as const,
-      size: "1.0 MB",
+      size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
     };
     setDocs(prev => [...prev, newDoc]);
   };
@@ -31,9 +33,16 @@ export default function Documents() {
           <div className="border-2 border-dashed border-border rounded-lg p-8 text-center space-y-3">
             <Upload className="h-10 w-10 text-muted-foreground mx-auto" />
             <p className="text-sm text-muted-foreground">Drag & drop files here, or click to browse</p>
-            <Button variant="outline" className="gap-2" onClick={handleUpload}>
-              <FileText className="h-4 w-4" /> Choose File
-            </Button>
+            <div className="relative inline-block">
+              <Button variant="outline" className="gap-2 relative overflow-hidden cursor-pointer">
+                <FileText className="h-4 w-4" /> Choose File
+                <input 
+                  type="file" 
+                  className="absolute inset-0 opacity-0 cursor-pointer" 
+                  onChange={handleUpload} 
+                />
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">Supported: PDF, JPG, PNG (max 5MB)</p>
           </div>
         </CardContent>

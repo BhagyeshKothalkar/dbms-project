@@ -4,29 +4,6 @@
 ALTER TABLE Course ADD COLUMN course_type VARCHAR(50) DEFAULT 'Core' 
     CHECK (course_type IN ('Core', 'Department Elective', 'Institute Elective'));
 
--- Course Restrictions configuration
-CREATE TABLE Semester_Structure (
-    structure_id SERIAL PRIMARY KEY,
-    term_id VARCHAR(50) NOT NULL,
-    department_id VARCHAR(50) NOT NULL,
-    semester_code INT NOT NULL,  -- e.g. semester 6
-    core_credits_required INT NOT NULL DEFAULT 0,
-    dept_elective_credits_required INT NOT NULL DEFAULT 0,
-    inst_elective_credits_required INT NOT NULL DEFAULT 0,
-    UNIQUE (term_id, department_id, semester_code),
-    FOREIGN KEY (term_id) REFERENCES Academic_Term(term_id) ON DELETE CASCADE,
-    FOREIGN KEY (department_id) REFERENCES Department(department_id) ON DELETE CASCADE
-);
-
-CREATE TABLE Course_Access_Constraint (
-    constraint_id SERIAL PRIMARY KEY,
-    course_code VARCHAR(50) NOT NULL,
-    allowed_department VARCHAR(50) DEFAULT 'ALL', -- e.g., 'CSE', 'EE', 'ALL'
-    allowed_batch_year INT,  -- e.g., 2021
-    allowed_roll_no_prefix VARCHAR(50), -- e.g., 'CSE2021'
-    FOREIGN KEY (course_code) REFERENCES Course(course_code) ON DELETE CASCADE
-);
-
 -- Delete constraints currently tying down for fresh insert
 DELETE FROM Enrollment;
 DELETE FROM Course_Section;
@@ -61,8 +38,8 @@ INSERT INTO Course (course_code, course_name, credits, department_id, course_typ
 INSERT INTO Semester_Structure (term_id, department_id, semester_code, core_credits_required, dept_elective_credits_required, inst_elective_credits_required) VALUES
 ('FALL-2026', 'CSE', 6, 7, 3, 2);
 
--- Constraints
--- CS401 specific to batch 2021 CSE
+-- -- Constraints
+-- -- CS401 specific to batch 2021 CSE
 INSERT INTO Course_Access_Constraint (course_code, allowed_roll_no_prefix) VALUES ('CS401', 'CSE2021');
 INSERT INTO Course_Access_Constraint (course_code, allowed_roll_no_prefix) VALUES ('CS402', 'CSE2021');
 INSERT INTO Course_Access_Constraint (course_code, allowed_department) VALUES ('CS301', 'CSE');
